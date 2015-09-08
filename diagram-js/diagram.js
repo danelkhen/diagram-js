@@ -7,41 +7,58 @@ function Diagram(_options) {
 
     var _el, _svg, _nodeElsById;
     var _connectorsMap, _nodesMap;
+    var _nodesById, _connectorsById;
     var _draggedNode;
-
-    var _config_animation_enabled,
-        _config_tree_enabled,
-        _config_tree_enabled,
-        _config_dragging_enabled,
-        _config_dragging_preserveMaxDistance,
-        _config_tree_tidy_orientation
-    ;
+    var _renderTimer;
+    var _config;
 
     Object.defineProperties(_this, {
         _options: { get: function () { return _options; }, set: function (value) { _options = value; } },
     });
 
+
+
     function render() {
+        _config = ObjGraph.flattenToObject(_options, "_");
         _connectorsMap = new Map();
         _nodesMap = new Map();
         _nodeElsById = {};
+        _nodesById = {};
+        _connectorsById = {};
 
-        _options.nodes.forEach(function (t) { t.isCollapsed = false; t.isHidden = false; });
-        _options.connectors.forEach(function (t) { t.maxDistance = null; });
-        
+        _options.nodes.forEach(function (node) {
+            node.isCollapsed = false;
+            node.isHidden = false;
+            if (node.pos == null)
+                node.pos = { x: 0, y: 0 };
+            if (node.dimensions == null)
+                node.dimensions = { width: 100, height: 100 };
+            node.childConnectors = _options.connectors.whereEq("from", node.id);
+            node.parentConnectors = _options.connectors.whereEq("to", node.id);
+            node.connectors = node.childConnectors.concat(node.parentConnectors);
+            _nodesById[node.id] = node;
+        });
+        _options.connectors.forEach(function (connector) {
+            connector.maxDistance = null;
+            _connectorsById[connector.id] = connector;
+            connector.fromNode = getNodeById(connector.from);
+            connector.toNode = getNodeById(connector.to);
+        });
+
+        _options.nodes.forEach(function (node) {
+            node.childNodes = node.childConnectors.select("toNode").distinct();
+            node.parentNodes = node.parentConnectors.select("fromNode").distinct();
+            node.nodes = node.childNodes.concat(node.parentNodes);
+        });
+
         _el = $(_options.el);
         _svg = _el.getAppend("svg");
 
-        _config_animation_enabled = Object.tryGet(_options, ["animation", "enabled"]);
-        _config_tree_enabled = Object.tryGet(_options, ["tree", "enabled"]);
-        _config_dragging_enabled = Object.tryGet(_options, ["dragging", "enabled"]);
-        _config_dragging_preserveMaxDistance = Object.tryGet(_options, ["dragging", "preserveMaxDistance"]);
-        _config_tree_tidy_orientation = Object.tryGet(_options, ["tree", "tidy", "orientation"]);
 
-        if (_config_animation_enabled)
+        if (_config.animation_enabled)
             renderElements();
         layout();
-        if (_config_animation_enabled)
+        if (_config.animation_enabled)
             animateNodes();
         else
             renderElements();
@@ -51,7 +68,7 @@ function Diagram(_options) {
         renderConnectors();
     }
     function layout() {
-        if (!_config_tree_enabled)
+        if (!_config.tree_enabled)
             return;
         layoutAsTree();
     }
@@ -74,7 +91,6 @@ function Diagram(_options) {
         bfsConnectors(node, function (edge) {
             verifyMaxDistance(edge.connector, edge.to, edge.from);
         });
-        renderElements();
     }
 
     function enableDragging(node) {
@@ -85,8 +101,10 @@ function Diagram(_options) {
             },
             drag: function (e, ui) {
                 node.pos = { x: ui.position.left, y: ui.position.top };
-                if (_config_dragging_preserveMaxDistance)
+                if (_config.dragging_preserveMaxDistance) {
                     verifyMaxDistances(node);
+                    renderElements();
+                }
                 else {
                     var connectors = getNodeConnectors(node);
                     connectors.forEach(renderConnector);
@@ -116,7 +134,7 @@ function Diagram(_options) {
         }
         if (init) {
             el.data("node", node);
-            if (_config_dragging_enabled)
+            if (_config.dragging_enabled)
                 enableDragging(node);
         }
         var classes = [
@@ -133,6 +151,8 @@ function Diagram(_options) {
         positionNode(node);
         if (_options.renderNode)
             _options.renderNode(node);
+        if (init)
+            node.dimensions = { width: el[0].offsetWidth, height: el[0].offsetHeight };
 
     }
 
@@ -159,7 +179,7 @@ function Diagram(_options) {
         }
     }
     function getConnectorNodes(connector) {
-        return [getNodeById(connector.from), getNodeById(connector.to)];
+        return [connector.fromNode, connector.toNode];
     }
     function getOppositeNode(connector, node) {
         var nodes = getConnectorNodes(connector);
@@ -171,12 +191,9 @@ function Diagram(_options) {
     }
 
     function verifyMaxDistance(connector, node1, node2) {
-        var el = getConnectorElement(connector);
         if (node1 == node2)
             return;
-        var el1 = getNodeElement(node1);
-        var el2 = getNodeElement(node2);
-        var points = getConnectionPoints(el1, el2);
+        var points = getConnectionPoints(node1, node2);
         var p1 = points[0];
         var p2 = points[1];
         var distance = getDistance(points[0], points[1]);
@@ -189,10 +206,11 @@ function Diagram(_options) {
         var v = getDirection(p1, p2);
         var d = distance - connector.maxDistance;
         var p3 = moveTowards(p1, p2, d);
-        var centerOffset = getRectCenterOffset(elToRect(el1[0]));
+        var centerOffset = getRectCenterOffset(getNodeRect(node1));//elToRect(el1[0]));
         p3 = point_add(p3, point_multiply(centerOffset, -1));
         node1.pos = p3;
     }
+
     function point_toString(p) {
         return "(" + p.x + "," + p.y + ")";
     }
@@ -231,23 +249,26 @@ function Diagram(_options) {
 
     function renderConnector(connector) {
         var el = getConnectorElement(connector);
-        var el1 = getNodeElementById(connector.from);
-        var el2 = getNodeElementById(connector.to);
         var pathEl = el.getAppend("path");
-        connect(el1, el2, pathEl);
+
+        connector.points = getConnectionPoints(connector.fromNode, connector.toNode);
+
+        drawLine(connector.points[0], connector.points[1], pathEl);
+
         el.toggle(!connector.isHidden);
         if (_options.renderConnector)
             _options.renderConnector(connector, el);
     }
 
-    function connect(el1, el2, connectorEl) {
-        var pair = getConnectionPoints(el1, el2);
-        drawLine(pair[0], pair[1], connectorEl);
+    function getNodeRect(node) {
+        return { left: node.pos.x, top: node.pos.y, width: node.dimensions.width, height: node.dimensions.height };
     }
-    function getConnectionPoints(el1, el2) {
-        var els = [el1, el2].select(0);
-        var rects = els.select(elToRect);
-        return rects.select(getRectCenter);
+
+    function getConnectionPoints(node1, node2) {
+        var nodes = [node1, node2];//getConnectorNodes(connector);
+        var rects = nodes.select(getNodeRect);
+        var points = rects.select(getRectCenter);
+        return points;
     }
 
     function drawLine(p1, p2, el) {
@@ -273,14 +294,16 @@ function Diagram(_options) {
     }
 
     function getNodeById(id) {
-        return _options.nodes.whereEq("id", id)[0];
+        return _nodesById[id];
     }
 
     function getNodeConnectors(node) {
-        return _options.connectors.where(function (t) { return t.from == node.id || t.to == node.id });
+        return node.connectors;
+        //return _options.connectors.where(function (t) { return t.from == node.id || t.to == node.id });
     }
     function getNodeChildConnectors(node) {
-        return _options.connectors.where(function (t) { return t.from == node.id });
+        return node.childConnectors;
+        //return _options.connectors.where(function (t) { return t.from == node.id });
     }
 
 
@@ -309,14 +332,17 @@ function Diagram(_options) {
         return _options.nodes.where(function (t) { return getNodeParents(t).length == 0; }).orderByDescending(function (t) { return getNodeChildren(t).length; }).first();
     }
     function getNodeParents(node) {
-        var ids = _options.connectors.whereEq("to", node.id).select("from");
-        var list = _options.nodes.where(function (t) { return ids.contains(t.id); });
-        return list;
+        return node.parentNodes;
+
+        //var ids = _options.connectors.whereEq("to", node.id).select("from");
+        //var list = _options.nodes.where(function (t) { return ids.contains(t.id); });
+        //return list;
     }
     function getNodeChildren(node) {
-        var ids = _options.connectors.whereEq("from", node.id).select("to");
-        var list = _options.nodes.where(function (t) { return ids.contains(t.id); });
-        return list;
+        return node.childNodes;
+        //var ids = _options.connectors.whereEq("from", node.id).select("to");
+        //var list = _options.nodes.where(function (t) { return ids.contains(t.id); });
+        //return list;
     }
 
     function animateNodes() {
@@ -324,7 +350,12 @@ function Diagram(_options) {
             var el = getNodeElement(node);
             if (el == null || node.pos == null)
                 return null;
-            return el.animate({ top: node.pos.y, left: node.pos.x }, { progress: function () { getNodeConnectors(node).forEach(renderConnector); } }).promise();
+            return el.animate({ top: node.pos.y, left: node.pos.x }, {
+                progress: function () {
+                    node.pos = getPos(el);
+                    getNodeConnectors(node).forEach(renderConnector);
+                }
+            }).promise();
         }).exceptNulls();
         return sync(promises);
     }
@@ -381,11 +412,11 @@ function Diagram(_options) {
         var bounds = new tidytree.TidyTree().layout(tree);
 
         var scale = { x: 7, y: 12 };
-        if (_config_tree_tidy_orientation == "horizontal")
+        if (_config.tree_tidy_orientation == "horizontal")
             scale = flip(scale);
-        
+
         var transform = function (pos) {
-            if (_config_tree_tidy_orientation == "horizontal") {
+            if (_config.tree_tidy_orientation == "horizontal") {
                 pos = flip(pos);
             }
             pos = point_multiply(pos, scale);
@@ -442,7 +473,6 @@ function Diagram(_options) {
     function pointToString(p) {
         return p.x + "," + p.y;
     }
-
 
     function createRect(p1, p2) {
         return { top: p1.y, left: p1.x, width: p2.x - p1.x, height: p2.y - p1.y };

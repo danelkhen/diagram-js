@@ -1,5 +1,5 @@
 ﻿"use strict";
-
+var _diagram;
 function main() {
     var data = {
         nodes: [
@@ -39,8 +39,8 @@ function main() {
     Array.generateNumbers(0, 3).forEach(function (i) {
         node.children.push({ children: [] });
         node.children.forEach(function (node) {
-            Array.generateNumbers(0, 3).forEach(function (i) {
-                node.children.push({ children: [] });
+            Array.generateNumbers(0, 50).forEach(function (i) {
+                node.children.push({  });
             });
         });
     });
@@ -48,9 +48,10 @@ function main() {
     $("body").getAppend("#diagram.Diagram");
 
     var graph = interpretGraph2(root);
+    console.log("nodes", graph.nodes.length, "connectors", graph.connectors.length);
     //var graph = data;
     //console.log(graph);
-    var _diagram = new Diagram({
+    _diagram = new Diagram({
         el: "#diagram",
         nodes: graph.nodes,
         connectors: graph.connectors,

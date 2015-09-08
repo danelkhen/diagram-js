@@ -1,5 +1,18 @@
 ﻿function ObjGraph() {
-    Function.addTo(ObjGraph, [reduce, getValuePaths, walkWithPath, walkWithValuePath, walkWithValues])
+    Function.addTo(ObjGraph, [reduce, getValuePaths, walkWithPath, walkWithValuePath, walkWithValues, getObjects, flattenToObject])
+
+    // { a : { b : "c", d:"e" } } -> [{path:["a","b"], value: "c"}, {path:["a","d"], value: "e" }]
+    function flattenToObject(root, separator) {
+        if(separator==null)
+            separator = ".";
+        var obj = {};
+        walkWithPath(root, function (path, value) {
+            if(path.length==0)
+                return;
+            obj[path.skip(1).join(separator)] = value;
+        });
+        return obj;
+    }
 
     // walks an object graph, invoking an action for each value in the graph, providing the path from the root that originated this value
     // an action may return a value other than undefined, if so, it will be used to continue the iteration. returning explicit null will stop going deeper for that specific value
@@ -7,9 +20,19 @@
         reduce(root, function (prev, value, key) {
             var path = prev.toArray();
             path.push(key);
-            action(path);
+            action(path, value);
             return path;
         }, []);
+    }
+
+    function getObjects(root) {
+        var list = [];
+        reduce(root, function (prev, value, key) {
+            if (value == null || typeof (value) != "object" || typeof (value.valueOf()) != "object")
+                return;
+            list.push(value);
+        }, []);
+        return list;
     }
 
 
