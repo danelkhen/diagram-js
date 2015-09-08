@@ -39,7 +39,7 @@ function main() {
     Array.generateNumbers(0, 3).forEach(function (i) {
         node.children.push({ children: [] });
         node.children.forEach(function (node) {
-            Array.generateNumbers(0, 50).forEach(function (i) {
+            Array.generateNumbers(0, 3).forEach(function (i) {
                 node.children.push({  });
             });
         });
