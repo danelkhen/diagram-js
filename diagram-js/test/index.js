@@ -35,19 +35,22 @@ function main() {
 
     //var data = { a: [{ b: { c: {} } }, { b: { c: {} } }, { b: { c: {} } }] };
     var root = { children: [] };
-    var node = root;
     Array.generateNumbers(0, 3).forEach(function (i) {
-        node.children.push({ children: [] });
-        node.children.forEach(function (node) {
-            Array.generateNumbers(0, 3).forEach(function (i) {
-                node.children.push({  });
-            });
+        root.children.push({ children: [] });
+    });
+    root.children.forEach(function (node) {
+        Array.generateNumbers(0, 3).forEach(function (i) {
+            node.children.push({});
         });
     });
 
+
     $("body").getAppend("#diagram.Diagram");
 
-    var graph = interpretGraph2(root);
+    var graph = treeToGraph(root);//interpretGraph2(root);
+    var index = 0;
+    graph.nodes.forEach(function(t){t.id = (index++).toString()})
+    console.log(graph);
     console.log("nodes", graph.nodes.length, "connectors", graph.connectors.length);
     //var graph = data;
     //console.log(graph);
@@ -79,6 +82,25 @@ function main() {
         _diagram.render();
     });
 }
+
+function treeToGraph(root) {
+    var graph = { nodes: [], connectors: [] };
+    //var map = new Map();
+    function createNode(node) {
+        var node2 = {};
+        graph.nodes.push(node2);
+        //map.set(node, node2);
+        if (node.children != null)
+            node.children.select(createNode).forEach(function (child2) { connect(node2, child2); });
+        return node2;
+    }
+    function connect(parent, child) {
+        graph.connectors.push({ fromNode: parent, toNode: child });
+    }
+    createNode(root);
+    return graph;
+}
+
 
 
 
@@ -146,7 +168,7 @@ function interpretGraph2(objInGraph) {
     ObjGraph.walkWithValues(objInGraph, function (values) {
         var obj1 = values[values.length - 2];
         var obj2 = values[values.length - 1];
-        if(obj1 instanceof Array)
+        if (obj1 instanceof Array)
             obj1 = values[values.length - 3];
         connect(getNode(obj1), getNode(obj2));
     });

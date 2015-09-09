@@ -33,16 +33,21 @@ function Diagram(_options) {
                 node.pos = { x: 0, y: 0 };
             if (node.dimensions == null)
                 node.dimensions = { width: 100, height: 100 };
-            node.childConnectors = _options.connectors.whereEq("from", node.id);
-            node.parentConnectors = _options.connectors.whereEq("to", node.id);
-            node.connectors = node.childConnectors.concat(node.parentConnectors);
             _nodesById[node.id] = node;
         });
         _options.connectors.forEach(function (connector) {
             connector.maxDistance = null;
             _connectorsById[connector.id] = connector;
-            connector.fromNode = getNodeById(connector.from);
-            connector.toNode = getNodeById(connector.to);
+            if (connector.from != null)
+                connector.fromNode = getNodeById(connector.from);
+            if (connector.to != null)
+                connector.toNode = getNodeById(connector.to);
+        });
+
+        _options.nodes.forEach(function (node) {
+            node.childConnectors = _options.connectors.whereEq("fromNode", node);
+            node.parentConnectors = _options.connectors.whereEq("toNode", node);
+            node.connectors = node.childConnectors.concat(node.parentConnectors);
         });
 
         _options.nodes.forEach(function (node) {
