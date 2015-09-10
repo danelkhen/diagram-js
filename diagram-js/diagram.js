@@ -27,7 +27,7 @@ function Diagram(_options) {
         ];
 
         _config = {};
-        configNames.forEach(function(name){
+        configNames.forEach(function (name) {
             _config[name] = Object.tryGet(_options, name.split("_"));
         });
 
@@ -52,10 +52,10 @@ function Diagram(_options) {
                 connector.fromNode = getNodeById(connector.from);
             if (connector.to != null)
                 connector.toNode = getNodeById(connector.to);
-            
+
             connector.toNode.parentConnectors.push(connector);
             connector.fromNode.childConnectors.push(connector);
-            
+
             connector.toNode.connectors.push(connector);
             connector.fromNode.connectors.push(connector);
         });
@@ -127,7 +127,10 @@ function Diagram(_options) {
                 node.pos = { x: ui.position.left, y: ui.position.top };
                 if (_config.dragging_preserveMaxDistance) {
                     verifyMaxDistances(node);
-                    renderElements();
+                    renderConnectors();
+                    _options.nodes.forEach(positionNode);
+
+                    //renderElements();
                 }
                 else {
                     var connectors = getNodeConnectors(node);
@@ -152,7 +155,7 @@ function Diagram(_options) {
 
         if (reset) {
             el.draggable("destroy");
-            el.off();
+            //el.off();
             el.data("node", null);
             //el[0].className = "DiagramNode";
         }
@@ -161,6 +164,8 @@ function Diagram(_options) {
             if (_config.dragging_enabled)
                 enableDragging(node);
         }
+        if (_config.dragging_enabled)
+            enableDragging(node);
         var classes = [
             "DiagramNode",
             node.isCollapsed ? "isCollapsed" : "isExpanded",
