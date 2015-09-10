@@ -35,11 +35,11 @@ function main() {
 
     //var data = { a: [{ b: { c: {} } }, { b: { c: {} } }, { b: { c: {} } }] };
     var root = { children: [] };
-    Array.generateNumbers(0, 10).forEach(function (i) {
+    Array.generateNumbers(0, 3).forEach(function (i) {
         root.children.push({ children: [] });
     });
     root.children.forEach(function (node) {
-        Array.generateNumbers(0, 100).forEach(function (i) {
+        Array.generateNumbers(0, 3).forEach(function (i) {
             node.children.push({});
         });
     });
@@ -49,7 +49,7 @@ function main() {
 
     var graph = treeToGraph(root);//interpretGraph2(root);
     var index = 0;
-    graph.nodes.forEach(function(t){t.id = (index++).toString()})
+    graph.nodes.forEach(function (t) { t.id = (index++).toString() })
     console.log(graph);
     console.log("nodes", graph.nodes.length, "connectors", graph.connectors.length);
     //var graph = data;
@@ -58,12 +58,11 @@ function main() {
         el: "#diagram",
         nodes: graph.nodes,
         connectors: graph.connectors,
-        renderNode: function (node) {
-            var el = _diagram.getNodeElement(node);
+        renderNode: function (node, el) {
             el.getAppend(".id").text(node.id);
             el.getAppend("button.Toggle").text("+").offOn("mousedown.my", function (e) { _diagram.toggleNode(node); });
         },
-        //animation: { enabled: true },
+        animation: { enabled: true },
         tree: { enabled: true, tidy: { orientation: "horizontal" } },
         dragging: { enabled: true, preserveMaxDistance: true }
         //renderConnector: function (connector, el) {

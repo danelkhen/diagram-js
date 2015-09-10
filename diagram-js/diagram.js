@@ -3,10 +3,10 @@ function Diagram(_options) {
     if (this == null)
         return new Diagram(_options);
     var _this = this;
-    Function.addTo(_this, [getNodeElement, render, toggleNode, getNodeById]);
+    Function.addTo(_this, [getNodeElement, render, toggleNode]);
 
-    var _el, _svg, _nodeElsById;
-    var _connectorsMap, _nodesMap;
+    var _el, _svg, _nodes, _connectors;
+    var _connectorsMap, _nodesMap, _configNodes, _configConnectors, _nodesById;
     var _draggedNode;
     var _renderTimer;
     var _config;
@@ -33,9 +33,20 @@ function Diagram(_options) {
 
         _connectorsMap = new Map();
         _nodesMap = new Map();
-        _nodeElsById = {};
+        _nodesById = {};
 
-        _options.nodes.forEach(function (node) {
+
+        var prevConfigNodes = _configNodes || new Map();
+        var prevConfigConnectors = _configConnectors || new Map();
+        _configNodes = new Map();
+        _configConnectors = new Map();
+        _nodes = _options.nodes.select(function (node) { return prevConfigNodes.get(node) || { config: node }; });
+        _connectors = _options.connectors.select(function (node) { return  prevConfigConnectors.get(node) || { config: node }; });
+        _nodes.forEach(function (t) { _configNodes.set(t.config, t); });
+        _nodes.forEach(function (t) { _configConnectors.set(t.config, t); });
+        _nodes.forEach(function (t) { if (t.config.id != null) _nodesById[t.config.id] = t; });
+
+        _nodes.forEach(function (node) {
             node.isCollapsed = false;
             node.isHidden = false;
             if (node.pos == null)
@@ -46,12 +57,17 @@ function Diagram(_options) {
             node.parentConnectors = [];
             node.connectors = [];
         });
-        _options.connectors.forEach(function (connector) {
+        _connectors.forEach(function (connector) {
             connector.maxDistance = null;
-            if (connector.from != null)
-                connector.fromNode = getNodeById(connector.from);
-            if (connector.to != null)
-                connector.toNode = getNodeById(connector.to);
+            if (connector.config.from != null)
+                connector.fromNode = _nodesById[connector.config.from];
+            else
+                connector.fromNode = _configNodes.get(connector.config.fromNode);
+
+            if (connector.config.to != null)
+                connector.toNode = _nodesById[connector.config.to];
+            else
+                connector.toNode = _configNodes.get(connector.config.toNode);
 
             connector.toNode.parentConnectors.push(connector);
             connector.fromNode.childConnectors.push(connector);
@@ -60,13 +76,13 @@ function Diagram(_options) {
             connector.fromNode.connectors.push(connector);
         });
 
-        //_options.nodes.forEach(function (node) {
-        //    node.childConnectors = _options.connectors.whereEq("fromNode", node);
-        //    node.parentConnectors = _options.connectors.whereEq("toNode", node);
+        //_nodes.forEach(function (node) {
+        //    node.childConnectors = _connectors.whereEq("fromNode", node);
+        //    node.parentConnectors = _connectors.whereEq("toNode", node);
         //    node.connectors = node.childConnectors.concat(node.parentConnectors);
         //});
 
-        _options.nodes.forEach(function (node) {
+        _nodes.forEach(function (node) {
             node.childNodes = node.childConnectors.select("toNode").distinct();
             node.parentNodes = node.parentConnectors.select("fromNode").distinct();
             node.nodes = node.childNodes.concat(node.parentNodes);
@@ -96,15 +112,15 @@ function Diagram(_options) {
     //var _nodeEls
 
     function renderNodes() {
-        _el.children(".DiagramNode").zip(_options.nodes).forEach$(function (el) {
-            var obj = el.dataItem();
-            _nodeElsById[obj.id] = el;
-            _nodesMap.set(obj, el);
-            renderNode(obj);
+        _el.children(".DiagramNode").zip(_nodes).forEach$(function (el) {
+            var node = el.dataItem();
+            node.el = el;
+            _nodesMap.set(node, el);
+            renderNode(node);
         });
     }
     function renderConnectors() {
-        _svg.children("g.DiagramConnector").zip(_options.connectors).forEach$(function (el) {
+        _svg.children("g.DiagramConnector").zip(_connectors).forEach$(function (el) {
             var connector = el.dataItem();
             _connectorsMap.set(connector, el);
             renderConnector(connector);
@@ -128,8 +144,7 @@ function Diagram(_options) {
                 if (_config.dragging_preserveMaxDistance) {
                     verifyMaxDistances(node);
                     renderConnectors();
-                    _options.nodes.forEach(positionNode);
-
+                    _nodes.forEach(positionNode);
                     //renderElements();
                 }
                 else {
@@ -179,7 +194,7 @@ function Diagram(_options) {
 
         positionNode(node);
         if (_options.renderNode)
-            _options.renderNode(node);
+            _options.renderNode(node.config, node.el);
         if (init)
             node.dimensions = { width: el[0].offsetWidth, height: el[0].offsetHeight };
 
@@ -322,17 +337,13 @@ function Diagram(_options) {
         return connector.from + "-" + connector.to;
     }
 
-    function getNodeById(id) {
-        return _nodesById[id];
-    }
-
     function getNodeConnectors(node) {
         return node.connectors;
-        //return _options.connectors.where(function (t) { return t.from == node.id || t.to == node.id });
+        //return _connectors.where(function (t) { return t.from == node.id || t.to == node.id });
     }
     function getNodeChildConnectors(node) {
         return node.childConnectors;
-        //return _options.connectors.where(function (t) { return t.from == node.id });
+        //return _connectors.where(function (t) { return t.from == node.id });
     }
 
 
@@ -358,24 +369,24 @@ function Diagram(_options) {
         getNodeChildren(node).forEach(function (t) { printTreeNode(t, depth + "----"); });
     }
     function getRootNode() {
-        return _options.nodes.where(function (t) { return getNodeParents(t).length == 0; }).orderByDescending(function (t) { return getNodeChildren(t).length; }).first();
+        return _nodes.where(function (t) { return getNodeParents(t).length == 0; }).orderByDescending(function (t) { return getNodeChildren(t).length; }).first();
     }
     function getNodeParents(node) {
         return node.parentNodes;
 
-        //var ids = _options.connectors.whereEq("to", node.id).select("from");
-        //var list = _options.nodes.where(function (t) { return ids.contains(t.id); });
+        //var ids = _connectors.whereEq("to", node.id).select("from");
+        //var list = _nodes.where(function (t) { return ids.contains(t.id); });
         //return list;
     }
     function getNodeChildren(node) {
         return node.childNodes;
-        //var ids = _options.connectors.whereEq("from", node.id).select("to");
-        //var list = _options.nodes.where(function (t) { return ids.contains(t.id); });
+        //var ids = _connectors.whereEq("from", node.id).select("to");
+        //var list = _nodes.where(function (t) { return ids.contains(t.id); });
         //return list;
     }
 
     function animateNodes() {
-        var promises = _options.nodes.select(function (node) {
+        var promises = _nodes.select(function (node) {
             var el = getNodeElement(node);
             if (el == null || node.pos == null)
                 return null;
@@ -466,6 +477,7 @@ function Diagram(_options) {
     }
 
     function getNodeElement(node) {
+        return node.el;
         return _nodesMap.get(node);
     }
     function getConnectorElement(connector) {
