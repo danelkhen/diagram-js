@@ -18,7 +18,19 @@ function Diagram(_options) {
 
 
     function render() {
-        _config = ObjGraph.flattenToObject(_options, "_");
+        var configNames = [
+            "tree_enabled",
+            "dragging_preserveMaxDistance",
+            "dragging_enabled",
+            "tree_tidy_orientation",
+            "animation_enabled"
+        ];
+
+        _config = {};
+        configNames.forEach(function(name){
+            _config[name] = Object.tryGet(_options, name.split("_"));
+        });
+
         _connectorsMap = new Map();
         _nodesMap = new Map();
         _nodeElsById = {};
@@ -30,6 +42,9 @@ function Diagram(_options) {
                 node.pos = { x: 0, y: 0 };
             if (node.dimensions == null)
                 node.dimensions = { width: 100, height: 100 };
+            node.childConnectors = [];
+            node.parentConnectors = [];
+            node.connectors = [];
         });
         _options.connectors.forEach(function (connector) {
             connector.maxDistance = null;
@@ -37,13 +52,19 @@ function Diagram(_options) {
                 connector.fromNode = getNodeById(connector.from);
             if (connector.to != null)
                 connector.toNode = getNodeById(connector.to);
+            
+            connector.toNode.parentConnectors.push(connector);
+            connector.fromNode.childConnectors.push(connector);
+            
+            connector.toNode.connectors.push(connector);
+            connector.fromNode.connectors.push(connector);
         });
 
-        _options.nodes.forEach(function (node) {
-            node.childConnectors = _options.connectors.whereEq("fromNode", node);
-            node.parentConnectors = _options.connectors.whereEq("toNode", node);
-            node.connectors = node.childConnectors.concat(node.parentConnectors);
-        });
+        //_options.nodes.forEach(function (node) {
+        //    node.childConnectors = _options.connectors.whereEq("fromNode", node);
+        //    node.parentConnectors = _options.connectors.whereEq("toNode", node);
+        //    node.connectors = node.childConnectors.concat(node.parentConnectors);
+        //});
 
         _options.nodes.forEach(function (node) {
             node.childNodes = node.childConnectors.select("toNode").distinct();
