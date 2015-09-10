@@ -7,7 +7,6 @@ function Diagram(_options) {
 
     var _el, _svg, _nodeElsById;
     var _connectorsMap, _nodesMap;
-    var _nodesById, _connectorsById;
     var _draggedNode;
     var _renderTimer;
     var _config;
@@ -23,8 +22,6 @@ function Diagram(_options) {
         _connectorsMap = new Map();
         _nodesMap = new Map();
         _nodeElsById = {};
-        _nodesById = {};
-        _connectorsById = {};
 
         _options.nodes.forEach(function (node) {
             node.isCollapsed = false;
@@ -33,11 +30,9 @@ function Diagram(_options) {
                 node.pos = { x: 0, y: 0 };
             if (node.dimensions == null)
                 node.dimensions = { width: 100, height: 100 };
-            _nodesById[node.id] = node;
         });
         _options.connectors.forEach(function (connector) {
             connector.maxDistance = null;
-            _connectorsById[connector.id] = connector;
             if (connector.from != null)
                 connector.fromNode = getNodeById(connector.from);
             if (connector.to != null)
@@ -77,16 +72,19 @@ function Diagram(_options) {
             return;
         layoutAsTree();
     }
+    //var _nodeEls
 
     function renderNodes() {
-        _el.getAppendRemoveForEach(".DiagramNode", _options.nodes, function (el, obj) {
+        _el.children(".DiagramNode").zip(_options.nodes).forEach$(function (el) {
+            var obj = el.dataItem();
             _nodeElsById[obj.id] = el;
             _nodesMap.set(obj, el);
             renderNode(obj);
         });
     }
     function renderConnectors() {
-        _svg.getAppendRemoveForEach("g.DiagramConnector", _options.connectors, function (el, connector) {
+        _svg.children("g.DiagramConnector").zip(_options.connectors).forEach$(function (el) {
+            var connector = el.dataItem();
             _connectorsMap.set(connector, el);
             renderConnector(connector);
         });
@@ -441,11 +439,8 @@ function Diagram(_options) {
         });
     }
 
-    function getNodeElementById(id) {
-        return _nodeElsById[id];
-    }
     function getNodeElement(node) {
-        return _nodesMap.get(node);// getNodeElementById(node.id);
+        return _nodesMap.get(node);
     }
     function getConnectorElement(connector) {
         return _connectorsMap.get(connector);
