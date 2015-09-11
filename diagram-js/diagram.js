@@ -41,7 +41,7 @@ function Diagram(_options) {
         _configNodes = new Map();
         _configConnectors = new Map();
         _nodes = _options.nodes.select(function (node) { return prevConfigNodes.get(node) || { config: node }; });
-        _connectors = _options.connectors.select(function (node) { return  prevConfigConnectors.get(node) || { config: node }; });
+        _connectors = _options.connectors.select(function (node) { return prevConfigConnectors.get(node) || { config: node }; });
         _nodes.forEach(function (t) { _configNodes.set(t.config, t); });
         _nodes.forEach(function (t) { _configConnectors.set(t.config, t); });
         _nodes.forEach(function (t) { if (t.config.id != null) _nodesById[t.config.id] = t; });
@@ -119,6 +119,45 @@ function Diagram(_options) {
             renderNode(node);
         });
     }
+
+    function renderNode(node) {
+        var el = getNodeElement(node);
+        var node2 = el.data("node");
+        var init = node2 != node;
+        var reset = init && node2 != null;
+
+        if (reset) {
+            el.draggable("destroy");
+            //el.off();
+            el.data("node", null);
+            //el[0].className = "DiagramNode";
+        }
+        if (init) {
+            el.data("node", node);
+            if (_config.dragging_enabled)
+                enableDragging(node);
+        }
+        if (_config.dragging_enabled)
+            enableDragging(node);
+        var classes = [
+            "DiagramNode",
+            node.isCollapsed ? "isCollapsed" : "isExpanded",
+            node.isHidden ? "isCollapsed" : "isExpanded",
+            getNodeConnectors(node).length ? "hasConnectors" : "hasNoConnectors",
+            getNodeChildren(node).length ? "hasChildren" : "hasNoChildren",
+        ];
+
+        el.toggle(!node.isHidden);
+        el[0].className = classes.join(" ");
+
+        positionNode(node);
+        if (_options.renderNode)
+            _options.renderNode(node.config, node.el);
+        if (init)
+            node.dimensions = { width: el[0].offsetWidth, height: el[0].offsetHeight };
+
+    }
+
     function renderConnectors() {
         _svg.children("g.DiagramConnector").zip(_connectors).forEach$(function (el) {
             var connector = el.dataItem();
@@ -162,43 +201,6 @@ function Diagram(_options) {
         });
     }
 
-    function renderNode(node) {
-        var el = getNodeElement(node);
-        var node2 = el.data("node");
-        var init = node2 != node;
-        var reset = init && node2 != null;
-
-        if (reset) {
-            el.draggable("destroy");
-            //el.off();
-            el.data("node", null);
-            //el[0].className = "DiagramNode";
-        }
-        if (init) {
-            el.data("node", node);
-            if (_config.dragging_enabled)
-                enableDragging(node);
-        }
-        if (_config.dragging_enabled)
-            enableDragging(node);
-        var classes = [
-            "DiagramNode",
-            node.isCollapsed ? "isCollapsed" : "isExpanded",
-            node.isHidden ? "isCollapsed" : "isExpanded",
-            getNodeConnectors(node).length ? "hasConnectors" : "hasNoConnectors",
-            getNodeChildren(node).length ? "hasChildren" : "hasNoChildren",
-        ];
-
-        el.toggle(!node.isHidden);
-        el[0].className = classes.join(" ");
-
-        positionNode(node);
-        if (_options.renderNode)
-            _options.renderNode(node.config, node.el);
-        if (init)
-            node.dimensions = { width: el[0].offsetWidth, height: el[0].offsetHeight };
-
-    }
 
 
     function createEdges(node) {
