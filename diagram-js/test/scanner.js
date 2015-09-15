@@ -13,10 +13,21 @@ function scanner_main() {
 
 function Scanner() {
     var _copies = new Map();
-    Function.addTo(this, [save, getChanges]);
+    Function.addTo(this, [save, getChanges, getCopy, setCopy, getChangesAndSave]);
 
     function save(obj) {
-        _copies.set(obj, shallowCopy(obj));
+        setCopy(obj, shallowCopy(obj));
+    }
+
+    function getCopy(obj) {
+        return _copies.get(obj);
+    }
+    function setCopy(obj, copy) {
+        if (copy == null) {
+            _copies.delete(obj);
+            return;
+        }
+        _copies.set(obj, copy);
     }
 
     function getChangesAndSave(obj, prev) {

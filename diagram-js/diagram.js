@@ -3,13 +3,14 @@ function Diagram(_options) {
     if (this == null)
         return new Diagram(_options);
     var _this = this;
-    Function.addTo(_this, [getNodeElement, render, toggleNode]);
+    Function.addTo(_this, [render, toggleNode]);
 
     var _el, _svg, _nodes, _connectors;
-    var _connectorsMap, _nodesMap, _configNodes, _configConnectors, _nodesById;
+    var _configNodes, _configConnectors, _nodesById;
     var _draggedNode;
     var _renderTimer;
     var _config;
+    //var _scanner;
 
     Object.defineProperties(_this, {
         _options: { get: function () { return _options; }, set: function (value) { _options = value; } },
@@ -17,7 +18,7 @@ function Diagram(_options) {
 
 
 
-    function render() {
+    function init() {
         var configNames = [
             "tree_enabled",
             "dragging_preserveMaxDistance",
@@ -31,8 +32,6 @@ function Diagram(_options) {
             _config[name] = Object.tryGet(_options, name.split("_"));
         });
 
-        _connectorsMap = new Map();
-        _nodesMap = new Map();
         _nodesById = {};
 
 
@@ -76,21 +75,26 @@ function Diagram(_options) {
             connector.fromNode.connectors.push(connector);
         });
 
-        //_nodes.forEach(function (node) {
-        //    node.childConnectors = _connectors.whereEq("fromNode", node);
-        //    node.parentConnectors = _connectors.whereEq("toNode", node);
-        //    node.connectors = node.childConnectors.concat(node.parentConnectors);
-        //});
-
         _nodes.forEach(function (node) {
             node.childNodes = node.childConnectors.select("toNode").distinct();
             node.parentNodes = node.parentConnectors.select("fromNode").distinct();
             node.nodes = node.childNodes.concat(node.parentNodes);
         });
 
+        //_scanner = new Scanner();
+        //_scanner.save(_nodes);
+        //_scanner.save(_connectors);
+        //_nodes.forEach(_scanner.save);
+        //_connectors.forEach(_scanner.save);
+
         _el = $(_options.el);
         _svg = _el.getAppend("svg");
 
+    }
+
+
+    function render() {
+        init();
 
         if (_config.animation_enabled)
             renderElements();
@@ -115,13 +119,12 @@ function Diagram(_options) {
         _el.children(".DiagramNode").zip(_nodes).forEach$(function (el) {
             var node = el.dataItem();
             node.el = el;
-            _nodesMap.set(node, el);
             renderNode(node);
         });
     }
 
     function renderNode(node) {
-        var el = getNodeElement(node);
+        var el = node.el;
         var node2 = el.data("node");
         var init = node2 != node;
         var reset = init && node2 != null;
@@ -161,7 +164,7 @@ function Diagram(_options) {
     function renderConnectors() {
         _svg.children("g.DiagramConnector").zip(_connectors).forEach$(function (el) {
             var connector = el.dataItem();
-            _connectorsMap.set(connector, el);
+            connector.el = el;
             renderConnector(connector);
         });
     }
@@ -173,7 +176,7 @@ function Diagram(_options) {
     }
 
     function enableDragging(node) {
-        var el = getNodeElement(node);
+        var el = node.el;
         el.draggable({
             start: function (e, ui) {
                 _draggedNode = node;
@@ -182,9 +185,9 @@ function Diagram(_options) {
                 node.pos = { x: ui.position.left, y: ui.position.top };
                 if (_config.dragging_preserveMaxDistance) {
                     verifyMaxDistances(node);
+                    //renderChanges();
                     renderConnectors();
                     _nodes.forEach(positionNode);
-                    //renderElements();
                 }
                 else {
                     var connectors = node.connectors;
@@ -294,7 +297,7 @@ function Diagram(_options) {
     }
 
     function renderConnector(connector) {
-        var el = getConnectorElement(connector);
+        var el = connector.el;
         var pathEl = el.getAppend("path");
 
         connector.points = getConnectionPoints(connector.fromNode, connector.toNode);
@@ -361,7 +364,7 @@ function Diagram(_options) {
 
     function animateNodes() {
         var promises = _nodes.select(function (node) {
-            var el = getNodeElement(node);
+            var el = node.el;
             if (el == null || node.pos == null)
                 return null;
             return el.animate({ top: node.pos.y, left: node.pos.x }, {
@@ -379,7 +382,7 @@ function Diagram(_options) {
     }
 
     function positionNode(node) {
-        var el = getNodeElement(node);
+        var el = node.el;
         if (node.pos == null)
             return;
         return el.css({ top: node.pos.y, left: node.pos.x });
@@ -450,14 +453,6 @@ function Diagram(_options) {
         });
     }
 
-    function getNodeElement(node) {
-        return node.el;
-        return _nodesMap.get(node);
-    }
-    function getConnectorElement(connector) {
-        return _connectorsMap.get(connector);
-    }
-
 
     function rectToPoints(rect) {
         var bottom = rect.top + rect.height;
@@ -505,6 +500,34 @@ function Diagram(_options) {
     function getRectCenterOffset(rect) {
         return { x: rect.width / 2, y: rect.height / 2 };
     }
+
+
+    //function renderChanges() {
+    //    var nodeChanges = _scanner.getChangesAndSave(_nodes);
+    //    if (nodeChanges.added.length > 0 || nodeChanges.removed.length > 0)
+    //        renderNodes();
+    //    else {
+    //        _nodes.forEach(function (node) {
+    //            var changes = _scanner.getChangesAndSave(node);
+    //            if (changes.updated.length > 0) {
+    //                console.log("node", changes.updated);
+    //                renderNode(node);
+    //            }
+    //        });
+    //    }
+    //    var connectorChanges = _scanner.getChanges(_connectors);
+    //    if (connectorChanges.added.length > 0 || connectorChanges.removed.length > 0)
+    //        renderConnectors();
+    //    else {
+    //        _connectors.forEach(function (connector) {
+    //            var changes = _scanner.getChangesAndSave(connector);
+    //            if (changes.updated.length > 0) {
+    //                console.log("conn", changes.updated);
+    //                renderConnector(connector);
+    //            }
+    //        });
+    //    }
+    //}
 
 
 }
