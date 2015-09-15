@@ -78,6 +78,8 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="libs\tidytree.js" />
+    <Content Include="test\scanner.js" />
+    <Content Include="test\observer.js" />
     <Content Include="Web.config" />
   </ItemGroup>
   <ItemGroup>

@@ -1,6 +1,9 @@
 ﻿"use strict";
 var _diagram;
+
 function main() {
+    scanner_main();
+    //main2();
     var data = {
         nodes: [
                 { id: "a" },
@@ -50,17 +53,17 @@ function main() {
     var graph = treeToGraph(root);//interpretGraph2(root);
     var index = 0;
     graph.nodes.forEach(function (t) { t.id = (index++).toString() })
-    console.log(graph);
-    console.log("nodes", graph.nodes.length, "connectors", graph.connectors.length);
+    //console.log(graph);
+    //console.log("nodes", graph.nodes.length, "connectors", graph.connectors.length);
     //var graph = data;
     //console.log(graph);
     _diagram = new Diagram({
         el: "#diagram",
         nodes: graph.nodes,
         connectors: graph.connectors,
-        renderNode: function (node, el) {
-            el.getAppend(".id").text(node.id);
-            el.getAppend("button.Toggle").text("+").offOn("mousedown.my", function (e) { _diagram.toggleNode(node); });
+        renderNode: function (node) {
+            node.el.getAppend(".id").text(node.config.id);
+            node.el.getAppend("button.Toggle").text("+").offOn("mousedown.my", function (e) { _diagram.toggleNode(node); });
         },
         animation: { enabled: true },
         tree: { enabled: true, tidy: { orientation: "horizontal" } },

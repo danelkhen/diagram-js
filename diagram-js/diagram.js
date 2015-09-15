@@ -143,8 +143,8 @@ function Diagram(_options) {
             "DiagramNode",
             node.isCollapsed ? "isCollapsed" : "isExpanded",
             node.isHidden ? "isCollapsed" : "isExpanded",
-            getNodeConnectors(node).length ? "hasConnectors" : "hasNoConnectors",
-            getNodeChildren(node).length ? "hasChildren" : "hasNoChildren",
+            node.connectors.length ? "hasConnectors" : "hasNoConnectors",
+            node.childNodes.length ? "hasChildren" : "hasNoChildren",
         ];
 
         el.toggle(!node.isHidden);
@@ -152,7 +152,7 @@ function Diagram(_options) {
 
         positionNode(node);
         if (_options.renderNode)
-            _options.renderNode(node.config, node.el);
+            _options.renderNode(node);
         if (init)
             node.dimensions = { width: el[0].offsetWidth, height: el[0].offsetHeight };
 
@@ -187,7 +187,7 @@ function Diagram(_options) {
                     //renderElements();
                 }
                 else {
-                    var connectors = getNodeConnectors(node);
+                    var connectors = node.connectors;
                     connectors.forEach(renderConnector);
                 }
             },
@@ -204,7 +204,7 @@ function Diagram(_options) {
 
 
     function createEdges(node) {
-        var connectors = getNodeConnectors(node);
+        var connectors = node.connectors;
         var edges = connectors.select(function (connector) {
             var edge = { from: node, connector: connector, to: getOppositeNode(connector, node) };
             return edge;
@@ -334,30 +334,15 @@ function Diagram(_options) {
     }
 
 
-
-    function getConnectorId(connector) {
-        return connector.from + "-" + connector.to;
-    }
-
-    function getNodeConnectors(node) {
-        return node.connectors;
-        //return _connectors.where(function (t) { return t.from == node.id || t.to == node.id });
-    }
-    function getNodeChildConnectors(node) {
-        return node.childConnectors;
-        //return _connectors.where(function (t) { return t.from == node.id });
-    }
-
-
     function toggleNode(node) {
         node.isCollapsed = !node.isCollapsed;
         hideNodeDescendants(node, node.isCollapsed);
         renderNode(node);
     }
     function hideNodeDescendants(node, isHidden) {
-        var children = getNodeChildren(node);
+        var children = node.childNodes;
         children.forEach(function (t) { t.isHidden = isHidden; renderNode(t); });
-        getNodeChildConnectors(node).forEach(function (t) { t.isHidden = isHidden; renderConnector(t); });
+        node.childConnectors.forEach(function (t) { t.isHidden = isHidden; renderConnector(t); });
         children.forEach(function (t) {
             if (!t.isCollapsed)
                 hideNodeDescendants(t, isHidden);
@@ -368,23 +353,10 @@ function Diagram(_options) {
         if (depth == null)
             depth = "";
         console.log(depth, node.id);
-        getNodeChildren(node).forEach(function (t) { printTreeNode(t, depth + "----"); });
+        node.childNodes.forEach(function (t) { printTreeNode(t, depth + "----"); });
     }
     function getRootNode() {
-        return _nodes.where(function (t) { return getNodeParents(t).length == 0; }).orderByDescending(function (t) { return getNodeChildren(t).length; }).first();
-    }
-    function getNodeParents(node) {
-        return node.parentNodes;
-
-        //var ids = _connectors.whereEq("to", node.id).select("from");
-        //var list = _nodes.where(function (t) { return ids.contains(t.id); });
-        //return list;
-    }
-    function getNodeChildren(node) {
-        return node.childNodes;
-        //var ids = _connectors.whereEq("from", node.id).select("to");
-        //var list = _nodes.where(function (t) { return ids.contains(t.id); });
-        //return list;
+        return _nodes.where(function (t) { return t.parentNodes.length == 0; }).orderByDescending(function (t) { return t.childNodes.length; }).first();
     }
 
     function animateNodes() {
@@ -395,7 +367,7 @@ function Diagram(_options) {
             return el.animate({ top: node.pos.y, left: node.pos.x }, {
                 progress: function () {
                     node.pos = getPos(el);
-                    getNodeConnectors(node).forEach(renderConnector);
+                    node.connectors.forEach(renderConnector);
                 }
             }).promise();
         }).exceptNulls();
@@ -415,16 +387,16 @@ function Diagram(_options) {
 
     function getNodeDepth(node) {
         var depth = 0;
-        var parent = getNodeParents(node)[0];
+        var parent = node.parentNodes[0];
         while (parent != null) {
             depth++;
-            parent = getNodeParents(node)[0];
+            parent = node.parentNodes[0];
         }
         return depth;
     }
 
     function createTreeNode(node) {
-        var node2 = { Source: node, Children: getNodeChildren(node).select(createTreeNode) };
+        var node2 = { Source: node, Children: node.childNodes.select(createTreeNode) };
         return node2;
     }
     function createTree() {
